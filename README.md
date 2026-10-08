@@ -106,7 +106,9 @@ flowchart TB
   only re-embeds what changed.
 
 More: [docs/architecture.md](docs/architecture.md) · [docs/decisions.md](docs/decisions.md) ·
-[docs/evaluation.md](docs/evaluation.md) · [docs/example.md](docs/example.md) (a real research run)
+[docs/evaluation.md](docs/evaluation.md) · [docs/local-services.md](docs/local-services.md) (Neo4j, Ollama, the
+embedding model: required or optional, detection, configuration) · [docs/example.md](docs/example.md) (a real
+research run)
 
 ## Measured results
 
@@ -140,16 +142,19 @@ related on the official portal (a lower bound on precision).
 
 **Grounded answers** with a local 3B model (qwen2.5:3b, CPU) on 30 benchmark and 30 out-of-scope questions:
 29 / 30 out-of-scope questions declined and none of the benchmark questions; every citation points to evidence the
-model was given; 39 % of sentences pass the strict lexical support check and 5 / 30 answers contain a number not found
-in the cited text. Those sentences are flagged in the interface, with the missing number named. A small local model
+model was given. **Only 39 % of answer sentences pass the strict sentence-level lexical support check**, and 5 / 30
+answers contain a number not found in the cited text; valid citations do not make an answer grounded. Those sentences are flagged in the interface, with the missing number named. A small local model
 paraphrases and sometimes drifts; the verification layer is what makes that visible.
 
 ## Engineering decisions (and where they differ from the brief)
 
-* **No agent loop.** With a small local model, a fixed, auditable workflow is more reliable than model-chosen tools,
-  and the same question gives the same evidence. The graph, not the model, follows amendments and guidance.
-* **Neo4j for exploration, SQLite for retrieval-time graph lookups**: identical results, 2.8 ms against 11.6 ms per
-  expansion (medians), and no server needed to research.
+* **No agent loop, by design.** The local 3B model chose tools unreliably, and legal research needs the same question
+  to produce the same evidence. The workflow is fixed and auditable; the graph, not the model, follows amendments and
+  guidance, and the model only writes the final text from numbered evidence.
+* **SQLite is the system of record; Neo4j is a projection.** Every fact lives in SQLite and Neo4j is rebuilt from it.
+  Neo4j powers the graph screens (document relations, validity lineage, provision citations) and the read-only
+  Cypher console. Research-time graph lookups run on SQLite: on 620 random articles both backends returned identical
+  results, at 2.8 ms against 11.6 ms per expansion (medians), and research needs no server.
 * **No reranker yet**: the time budget went to validity weighting and graph expansion; reranking is the next
   experiment on the same benchmark.
 * **Exact vector search**: ~170k × 384 vectors fit in memory and search in milliseconds; no vector database.

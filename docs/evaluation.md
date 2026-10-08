@@ -1,16 +1,36 @@
 # Evaluation
 
 Every number below was measured on the national-core library (3,765 documents with text, 100,071 articles,
-170,204 passages) on a laptop CPU (Intel i5-1235U, no GPU, WSL2), with the commands shown. Reports are shown on the
-application's Evaluation page.
+170,204 passages) on a laptop CPU (Intel i5-1235U, no GPU, WSL2). The reports are also shown on the application's Evaluation page.
+
+## Summary
+
+Each layer is measured separately, because each can fail on its own:
+
+| Layer | What is measured | Result |
+|---|---|---|
+| Document structure | Articles of an independent segmentation found by the parser | 99.3 % of 24,600 |
+| Citation extraction | Extracted citations resolved to a document | 96.1 % of 120,304 |
+| Citation extraction | Linked document pairs the portal also relates (lower bound on precision) | 73.8 % |
+| Retrieval | Hybrid Recall@10 / MRR@10, Zalo test set | 89.2 % / 0.679 (751 questions) |
+| Out-of-scope abstention | Out-of-scope questions declined, end to end | 29 / 30 |
+| Citation correctness | Answer citations that point to evidence the model was given | 100 % |
+| **Sentence-level lexical support** | **Answer sentences whose content is found in their cited evidence** | **39.2 %** |
+| Numerical support | Answers stating a number not found in the cited evidence | 5 / 30 |
+
+The answer layer is the weak one. With the local 3B model, fewer than two in five answer sentences pass the strict
+lexical support check, and one answer in six states a number that its sources do not contain. Citations are always
+valid (the model only cites what it was given), but a valid citation does not make the sentence grounded. The
+interface marks every unsupported sentence and every unsupported number; the system does not claim fully grounded
+answers.
 
 ## Benchmarks used
 
-* **Zalo AI 2021 Legal Text Retrieval**, test split, as released by GreenNode on Hugging Face (MIT). Each question
-  has its relevant articles, identified by document number and article number, so they can be located in this
-  library independently of how either side segmented the text. 818 questions; the questions whose relevant document
-  is in the library are used. The documents referenced by these questions were added to the library selection, so
-  the benchmark measures ranking among ~3,800 documents, not coverage.
+* **Zalo AI 2021 Legal Text Retrieval**, test split, as released by GreenNode on Hugging Face (MIT). Each question has
+  its relevant articles, identified by document number and article number, so they can be located in this library
+  independently of how either side segmented the text. 818 questions, 788 of them with relevance judgements; those whose
+  relevant article is in the library are used. The documents referenced by these questions were added to the library
+  selection, so the benchmark measures ranking among ~3,800 documents, not coverage.
 * **Out-of-scope questions**: 30 questions written for this evaluation (everyday topics, foreign law, future facts,
   prices) that the library cannot answer.
 * **The portal's own relationships**, for citation extraction.
@@ -20,7 +40,6 @@ application's Evaluation page.
 The dense model was chosen among models not trained on the Zalo data.
 
 ## Structure parsing
-
 
 | Measure | Result |
 |---|---|
@@ -40,7 +59,6 @@ inside amending documents, which the reference counts as articles and the parser
 text.
 
 ## Citations and relations
-
 
 | Measure | Result |
 |---|---|
@@ -65,12 +83,12 @@ detailing them.
 
 ## Retrieval
 
-
 Article-level metrics: a question counts as found at k when one of its relevant articles is among the first k
 distinct articles returned (passages of the same article count once).
 
 751 questions; 37 others are left out because none of their relevant articles is in the library (the document is
-missing from the catalogue or was published on the portal without text, or the article was not found). Measured 2026-10-08 14:39.
+missing from the catalogue or was published on the portal without text, or the article was not found). Measured
+2026-10-08.
 
 | Mode | Recall@1 | Recall@5 | Recall@10 | MRR@10 | nDCG@10 |
 |---|---|---|---|---|---|
@@ -83,9 +101,9 @@ missing from the catalogue or was published on the portal without text, or the a
 complementary: keyword search is stronger on current law (MRR 0.696 against 0.619), dense search on the older texts
 (0.643 against 0.577), and fusion keeps most of both.
 
-**Validity weighting** ranks law currently in force first. The benchmark was built in 2021, and
-229 of its 751 answers are now in documents that have
-expired or that the portal's relationships show as replaced. Scored separately:
+**Validity weighting** ranks law currently in force first. The benchmark was built in 2021, and 229 of its 751
+answers are now in documents that have expired or that the portal's relationships show as replaced. Scored
+separately:
 
 | Mode | Answer in force: Recall@10 | MRR@10 | Answer no longer in force: Recall@10 | MRR@10 |
 |---|---|---|---|---|
@@ -94,24 +112,23 @@ expired or that the portal's relationships show as replaced. Scored separately:
 | Hybrid (reciprocal rank fusion) | 90.6 % | 0.696 | 86.0 % | 0.641 |
 | Hybrid + validity weighting (default) | 91.6 % | 0.708 | 52.8 % | 0.123 |
 
-On the 522 questions answered by law in force, validity weighting improves on plain
-hybrid ranking; on the others it does what it is meant to do, ranking current provisions above the historical answer.
-It is the default for research on current law and can be switched off in the interface (“Ưu tiên văn bản đang có hiệu
-lực”) for historical research, which gives the plain hybrid ranking.
+On the 522 questions answered by law in force, validity weighting improves on plain hybrid ranking; on the others it
+does what it is meant to do, ranking current provisions above the historical answer. It is the default for research on
+current law and can be switched off in the interface (“Ưu tiên văn bản đang có hiệu lực”) for historical research, which
+gives the plain hybrid ranking.
 
 Latency of the whole retrieval step (keyword + dense + fusion + validity), uncached, on 100 questions:
-median 262 ms, 90th percentile 445 ms (the encoder and the 170,204 vectors are loaded once, when the
-worker starts).
+median 262 ms, 90th percentile 445 ms (the encoder and the 170,204 vectors are loaded once, when the worker
+starts).
 
 ## Grounded answers and abstention
-
 
 **Abstention gate** (no model). multilingual-E5 similarities are compressed: on a random sample of 100 benchmark
 questions the closest passage scored at least 0.853 (median 0.907), on the 30 out-of-scope questions 0.805–0.897
 (median 0.857). The threshold was chosen on another random sample of 150 benchmark questions: at 0.87, 4 of the 150
 (2.7 %) and 23 of the 30 out-of-scope questions (77 %) are declined before any model call. Checked on the first
-sample of 100: 2 of 100 benchmark questions (2 %) are declined. The out-of-scope set is small and was used to choose the threshold, so this
-figure is optimistic; the end-to-end figure below adds the model's own refusals.
+sample of 100: 2 of 100 benchmark questions (2 %) are declined. The out-of-scope set is small and was used to
+choose the threshold, so this figure is optimistic; the end-to-end figure below adds the model's own refusals.
 
 **End to end** with qwen2.5:3b (Ollama, CPU), on a separate random sample of 30 benchmark questions and the 30
 out-of-scope questions, measured 2026-10-08:
@@ -121,7 +138,7 @@ out-of-scope questions, measured 2026-10-08:
 | Out-of-scope questions declined (gate or the model's “KHÔNG ĐỦ CĂN CỨ”) | **29 / 30 (96.7 %)** |
 | Benchmark questions wrongly declined | 0 / 30 |
 | Citations that point to evidence the model was given | **100 %** |
-| Answer sentences supported by their cited evidence (lexical check) | 39.2 % |
+| Answer sentences supported by their cited evidence (strict lexical check) | **39.2 %** |
 | Answers with a number not found in the cited evidence | 5 / 30 (16.7 %) |
 | Answers in which every substantive sentence is supported | 12 / 30 (40 %) |
 | Benchmark article among the evidence given to the model | 66.7 % |

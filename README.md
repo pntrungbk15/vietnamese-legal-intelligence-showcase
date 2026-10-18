@@ -10,7 +10,7 @@ and answers that show their sources.**
 ![Runs on](https://img.shields.io/badge/runs_on-laptop_CPU-6D28D9)
 
 > **About this repository.** It presents the application through screenshots, its design and its measured results.
-> It contains no source code: the implementation is private at this stage, and it is built on FluentQt Community and
+> It contains no source code: the implementation is private at this stage, and it is built on [FluentQt](https://github.com/pntrungbk15/fluentqt-showcase) Community and
 > FluentQt Pro, which are not publicly available either. The legal texts shown are public Vietnamese legal documents
 > from the national legal database (vbpl.vn) through the dataset credited below.
 
